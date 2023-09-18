@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package mapreduce.proto;
+
+enum State {
+  WAIT = 0;
+  MAP = 1;
+  REDUCE = 2;
+  DONE = 3;
+}
+
+message NotifyInfo {
+  int32 token = 1;
+}
+
+message MapInfo {
+  int32 map_id = 1;
+  int32 n_reduce = 2;
+  string fname = 3;
+}
+
+message ReduceInfo {
+  int32 reduce_id = 1;
+  int32 n_map = 2;
+}
+
+message TaskResponse {
+  State state = 1;
+  int32 token = 2;
+  oneof task {
+    MapInfo map_task = 3;
+    ReduceInfo reduce_task = 4;
+  }
+}
+
+service MasterService {
+  rpc RequestTask(google.protobuf.Empty) returns (TaskResponse);
+  rpc NotifyDone(NotifyInfo) returns (google.protobuf.Empty);
+}
