@@ -9,9 +9,6 @@ DEFINE_int32(task_wait_ms, 5000, "Milliseconds to wait for worker tasks");
 namespace mapreduce {
 
 void Master::prepareMap() {
-  // TQ: for consistency, we should also clear/check variables like what we do
-  // in prepareReduce(), in order to make repeated start/stop of the master
-  // possible ✅
   LOG(INFO) << "Preparing map phase data";
 
   CHECK(todo_.empty());
@@ -25,7 +22,6 @@ void Master::prepareMap() {
     response.mutable_map_task()->set_map_id(i);
     response.mutable_map_task()->set_n_reduce(nReduce_);
     response.mutable_map_task()->set_fname(files_[i]);
-    // TQ: shall we use emplace_back(std::move(response)) instead? ✅
     todo_.push(std::move(response));
   }
   phase_ = Phase::MAP;
@@ -34,8 +30,6 @@ void Master::prepareMap() {
 }
 
 void Master::prepareReduce() {
-  // TQ: rather than clearing everything, let's use some assertions provided by
-  // the glog library for some variables, e.g. CHECK(curr_.empty()); ✅
   LOG(INFO) << "Preparing reduce phase data";
 
   CHECK(todo_.empty());
@@ -48,7 +42,6 @@ void Master::prepareReduce() {
     response.set_token(token_++);
     response.mutable_reduce_task()->set_reduce_id(i);
     response.mutable_reduce_task()->set_n_map(nMap_);
-    // TQ: same as above ✅
     todo_.push(std::move(response));
   }
   phase_ = Phase::REDUCE;
@@ -102,9 +95,6 @@ asio::awaitable<void> Master::handleRequestTask(
     google::protobuf::Empty& request,
     grpc::ServerAsyncResponseWriter<proto::TaskResponse>& writer) {
   switch (phase_) {
-    // TQ: nit, changed the code below
-    // I would normally suggest code changes in the code review tool, but the
-    // review here is plain-text based, so I changed it directly ✅
     case Phase::MAP:
     case Phase::REDUCE:
       co_await sendTaskResponse(writer);
@@ -129,10 +119,6 @@ asio::awaitable<void> Master::handleNotifyDone(
     case Phase::REDUCE:
       co_await recordTaskComplete(request, writer);
       break;
-    // TQ: the message types might be incompatible here, so we still need a
-    // separate function? ✅
-    // TQ: continuing this comment, NotifyDone does not return a TaskResponse,
-    // so the typing here seems incompatible? ✅
     case Phase::DONE: {
       google::protobuf::Empty empty;
       co_await agrpc::finish(writer, empty, grpc::Status::OK);
@@ -153,7 +139,6 @@ asio::awaitable<void> Master::sendTaskResponse(
     co_return;
   }
 
-  // TQ: here a copy is made, shall we use std::move to avoid it? ✅
   response = std::move(todo_.front());
   todo_.pop();
 
@@ -161,16 +146,10 @@ asio::awaitable<void> Master::sendTaskResponse(
   const auto id = phase_ == Phase::MAP ? response.map_task().map_id()
                                        : response.reduce_task().reduce_id();
   const auto msg = phase_ == Phase::MAP ? ", map id = " : ", reduce id = ";
-  // TQ: shall we make token a global monotonic counter instead of deriving from
-  // map or reduce ID? ❌
   curr_[token] = id;
 
   LOG(INFO) << "Sending task to worker: token = " << token << msg << id;
 
-  // TQ: I feel populating another TaskResponse object is a bit unnecessary,
-  // could we record a mapping of current tasks from their token/ID to the
-  // TaskResponse struct, and move that back into quete when the task timeouts?
-  // this could potentially save quite a few lines here ✅
   using namespace asio::experimental::awaitable_operators;
   co_await (utils::asyncSleepMs(FLAGS_task_wait_ms) &&
             agrpc::finish(writer, response, grpc::Status::OK));
@@ -203,12 +182,8 @@ asio::awaitable<void> Master::recordTaskComplete(
 
   LOG(INFO) << "Recording task complete: token = " << token << msg << id;
 
-  // TQ: nice! appreciate the simplicity here, the code here also seens to be
-  // able to provide atomicity, making sure the state variables are updated all
-  // at once to prevent any surprises ✅
   if (todo_.size() + curr_.size() == 0) {
     if (phase_ == Phase::MAP && done_.size() == nMap_) prepareReduce();
-    // TQ: small nit, we don't need the second condition after the && here ✅
     else if (phase_ == Phase::MAP)
       LOG(FATAL) << "Map phase ended without finishing all map tasks!";
     else if (phase_ == Phase::REDUCE && done_.size() == nReduce_)
@@ -219,9 +194,5 @@ asio::awaitable<void> Master::recordTaskComplete(
 
   co_await agrpc::finish(writer, empty, grpc::Status::OK);
 }
-
-// TQ: great work overall! thanks for demonstrating the great progress in your
-// master implementation. please address the comments and continue with the
-// details you've left as todo items. cheers!
 
 }  // namespace mapreduce

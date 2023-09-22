@@ -43,10 +43,6 @@ class Master {
     builder.RegisterService(&rpcService_);
     server_ = builder.BuildAndStart();
 
-    // TQ: the repeatedly_request function does not need co_spawn, also, let's
-    // the function's purpose is more like registering functions to handle
-    // RPCs in some coroutines later, so should be named registerHandlers() or
-    // something similar ✅
     registerRequestTaskHandler();
     registerNotifyDoneHandler();
     prepareMap();
@@ -65,8 +61,6 @@ class Master {
   }
 
  private:
-  // TQ: all private methods defined below should be declared here, and some
-  // definitions here seem no longer in use, please check ✅
   void prepareMap();
   void prepareReduce();
   void prepareDone();
@@ -74,18 +68,14 @@ class Master {
   void registerRequestTaskHandler();
   void registerNotifyDoneHandler();
 
-  // TQ: let's make sure we name the methods as handle<RPC name> for clarity ✅
   asio::awaitable<void> handleRequestTask(
       google::protobuf::Empty& request,
       grpc::ServerAsyncResponseWriter<proto::TaskResponse>& writer);
   asio::awaitable<void> handleNotifyDone(
       proto::NotifyInfo& request,
       grpc::ServerAsyncResponseWriter<google::protobuf::Empty>& writer);
-  // TQ: rename as sendTaskResponse for clarity ✅
   asio::awaitable<void> sendTaskResponse(
       grpc::ServerAsyncResponseWriter<proto::TaskResponse>& writer);
-  // TQ: rename as sendDoneResponse maybe? see my below comment as well ✅
-  // TQ: rename as recordTaskComplete ✅
   asio::awaitable<void> recordTaskComplete(
       proto::NotifyInfo& request,
       grpc::ServerAsyncResponseWriter<google::protobuf::Empty>& writer);
@@ -100,10 +90,6 @@ class Master {
   proto::MasterService::AsyncService rpcService_;
 
   std::atomic<bool> stopped_{true};
-
-  // TQ: a comment beside the variable is nice, but it'd be even better to
-  // provide a high-level comment about how master manages its states, would be
-  // much clearer to the reader of this code ✅
 
   /*
    * the way master manages its states

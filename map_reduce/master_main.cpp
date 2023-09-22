@@ -8,11 +8,6 @@ DEFINE_int32(port, 50051, "Master port to listen on");
 DEFINE_int32(n_reduce, 0, "Number of reduce tasks, default to same as nMap");
 
 int main(int argc, char* argv[]) {
-  // TQ: could we leverage gflags::SetUsageMessage to provide a help message to
-  // our users? the mixture of positional arguments and flags may cause some
-  // confusion here; you could research how other UNIX CLI tools handle this ✅
-  // TQ: the output of gflags help message seems messy by itself, let's provide
-  // the help message in repo README instead of here ❌
   utils::initEnv(&argc, &argv);
   if (argc < 2) LOG(FATAL) << "Please provide a list of input files";
 
